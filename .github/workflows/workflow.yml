@@ -1,45 +1,39 @@
 name: Deploy LLAMA3 to Jozu Hub
-
 on:
   push:
     branches:
       - master
   workflow_dispatch:
-
 permissions:
   id-token: write
   contents: read
   pull-requests: write
   issues: write
   actions: write
-
 env:
   ARTIFACT_NAME: jozu-artifact
   REPOSITORY_NAME: llama3-githubactions
-  USERNAME: shivay-couchbase
-
+  TAG: latest
+  USERNAME: shivaylamba
 
 jobs:
   unpack-to-model:
     name: unpack-large-model
     runs-on: ubuntu-latest
-
     steps:
       - name: checkout repository
         uses: actions/checkout@v4
-
       - name: install kit
         uses: jozu-ai/gh-kit-setup@v1.0.0
-
       - name: kit version
         shell: bash
         run: |
             kit version
-    
+
       - name: unpack llama3 model to models folder
         shell: bash
         run: kit unpack jozu.ml/jozu/llama3-8b:8B-instruct-q5_0 --model -d models
-    
+
       - name: upload-artifact
         id: upload-artifact
         uses: actions/upload-artifact@v4
@@ -47,7 +41,6 @@ jobs:
             name: ${{env.ARTIFACT_NAME}}
             path: .
             overwrite: true
-
 
 
   push-to-jozuhub:
@@ -59,35 +52,28 @@ jobs:
         uses: actions/download-artifact@v4
         with:
             name: ${{env.ARTIFACT_NAME}}
-    
+
       - name: Display structure of downloaded files
         run: ls -R
-
       - name: install kit
         uses: jozu-ai/gh-kit-setup@v1.0.0
-
       - name: login-to-jozuhub
         shell: bash
         env: 
             JOZU_EMAIL: ${{secrets.JOZU_EMAIL}}
             JOZU_PASSWORD: ${{secrets.JOZU_PASSWORD}}
         run: kit login jozu.ml -u $JOZU_EMAIL -p $JOZU_PASSWORD
-      
-      - name: Get Short SHA
-        id: get_short_sha
-        run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
-  
-
       - name: pack-modelkit
         shell: bash
         env:
             REPOSITORY_NAME: ${{env.REPOSITORY_NAME}}
+            TAG: ${{env.TAG}}
             USERNAME: ${{env.USERNAME}}
-        run: kit pack . -t jozu.ml/$USERNAME/$REPOSITORY_NAME:$SHORT_SHA
-
+        run: kit pack . -t jozu.ml/$USERNAME/$REPOSITORY_NAME:$TAG
       - name: push-modelkit
         shell: bash
         env:
             REPOSITORY_NAME: ${{env.REPOSITORY_NAME}}
+            TAG: ${{env.TAG}}
             USERNAME: ${{env.USERNAME}}
-        run: kit push jozu.ml/$USERNAME/$REPOSITORY_NAME:$SHORT_SHA
+        run: kit push jozu.ml/$USERNAME/$REPOSITORY_NAME:$TAG
